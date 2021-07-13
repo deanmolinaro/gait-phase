@@ -6,8 +6,6 @@ from os import listdir, getcwd, path, getcwd, makedirs
 import math
 import signal
 
-import numpy as np
-
 import os
 import gc
 
@@ -15,7 +13,7 @@ import multiprocessing as mp
 from multiprocessing.sharedctypes import RawArray, Value
 from ctypes import c_double
 
-from MPU9250 import MPU9250
+from ..imu.MPU9250 import MPU9250
 import board
 import digitalio
 
@@ -36,23 +34,27 @@ class GaitPhaseEstimator:
 		self.RECV_PORT = 8080
 
 		# Set up sync
-		self.sync_pin = digitalio.DigitalInOut(board.D4)
+		self.sync_pin = digitalio.DigitalInOut(board.D18) # Was D4
 		self.sync_pin.direction = digitalio.Direction.INPUT
 		self.sync_pin.pull = digitalio.Pull.DOWN
+		self.syncPrev = 0
 
-		self.test_pin = digitalio.DigitalInOut(board.D18)
-		self.test_pin.direction = digitalio.Direction.OUTPUT 
-		self.test_pin.value = 1
+		# self.test_pin = digitalio.DigitalInOut(board.D18)
+		# self.test_pin.direction = digitalio.Direction.OUTPUT 
+		# self.test_pin.value = 1
 
 		# while True:
 		# 	print(int(self.sync_pin.value))
 		# 	time.sleep(0.1)
 
 		# Set up IMUs
-		self.imu_l = self.start_imu(scl=board.SCL, sda=board.SDA)
-		self.imu_r = self.start_imu(scl=board.SCL_1, sda=board.SDA_1)
+		self.SCL_l = board.SCL
+		self.SDA_l = board.SDA
+		self.SCL_r = board.SCL_1
+		self.SDA_r = board.SDA_1
+		self.imu_l = self.start_imu(scl=self.SCL_l, sda=self.SDA_l)
+		self.imu_r = self.start_imu(scl=self.SCL_r, sda=self.SDA_r)
 		
-		self.prevSync = 0
 		# Start server and wait for connection
 		self.run_server = run_server
 		if self.run_server:
@@ -69,7 +71,7 @@ class GaitPhaseEstimator:
 	def run(self):
 		try:
 			processes = []
-			imu_process = mp.Process(target=self.log_imu_data, args=(0.004,))
+			imu_process = mp.Process(target=self.log_imu_data, args=(0.005,))
 			processes.append(imu_process)
 
 			# Test that mp.Lock() works
@@ -102,6 +104,8 @@ class GaitPhaseEstimator:
 				# Close TCP connection
 				self.recv_conn.close()
 
+			print('Exiting!')
+
 			return
 
 	def init_worker(self):
@@ -109,7 +113,7 @@ class GaitPhaseEstimator:
 		signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 	def choose_estimator(self):
-		model_files = [f for f in listdir(getcwd()) if '.h5' in f]
+		model_files = [f for f in listdir(getcwd() + '/../TensorFlowModels') if '.h5' in f]
 
 		print()
 		for i, model_file in enumerate(model_files):
@@ -151,15 +155,46 @@ class GaitPhaseEstimator:
 			count = 0
 			while True:
 				if time.time()-start_time >= loop_time:
-					start_time = time.time()
-					imu_data_l = self.imu_l.get_imu_data() # TODO: Using threading here
-					imu_data_r = self.imu_r.get_imu_data() # TODO: Using threading here
-					sync = int(self.sync_pin.value)
-					if self.prevSync!=sync:
-						print(sync)
-						self.prevSync = sync
-					self.update_imu_data(start_time-begin_time, imu_data_l, imu_data_r, sync)
-
+						start_time = time.time()
+						try:
+							imu_data_l = self.imu_l.get_imu_data() # TODO: Using threading here
+						except KeyboardInterrupt:
+							raise KeyboardInterrupt
+						except:
+							print('Rebooting left IMU')
+							while True:
+								try:
+									self.imu_l = self.start_imu(scl=self.SCL_l, sda=self.SDA_l)
+									print('Down for ' + str(time.time()-start_time) + 's')
+									break
+								except KeyboardInterrupt:
+									raise KeyboardInterrupt
+								except:
+									pass
+							continue
+						try:
+							imu_data_r = self.imu_r.get_imu_data() # TODO: Using threading here
+						except KeyboardInterrupt:
+							raise KeyboardInterrupt
+						except:
+							print('Rebooting right IMU')
+							while True:
+								try:
+									self.imu_r = self.start_imu(scl=self.SCL_r, sda=self.SDA_r)
+									print('Down for ' + str(time.time()-start_time) + 's')
+									break
+								except KeyboardInterrupt:
+									raise KeyboardInterrupt
+								except:
+									pass
+							continue
+							
+						sync = int(self.sync_pin.value)
+						if sync != self.syncPrev:
+							print('Last Sync = ' + str(sync))
+							self.syncPrev = sync
+						self.update_imu_data(start_time-begin_time, imu_data_l, imu_data_r, sync)
+						# print(f"{imu_data_l[0]}, {imu_data_r[0]}")
 		except:
 			print('Imu logging failed.')
 			traceback.print_exc()
@@ -243,28 +278,36 @@ class GaitPhaseEstimator:
 			# imu.set_gyro_offset_x(573)
 			# imu.set_gyro_offset_y(-78)
 			# imu.set_gyro_offset_z(-25)
-			imu.set_accel_offset_x(-3800) # Imu 1 settings
-			imu.set_accel_offset_y(3500)
-			imu.set_accel_offset_z(3650)
-			imu.set_gyro_offset_x(-20)
-			imu.set_gyro_offset_y(50)
-			imu.set_gyro_offset_z(-10)
+
+			# imu.set_accel_offset_x(-3800) # IMU1 settings (updated before start of pilots)
+			# imu.set_accel_offset_y(3500)
+			# imu.set_accel_offset_z(3650)
+			# imu.set_gyro_offset_x(-20)
+			# imu.set_gyro_offset_y(50)
+			# imu.set_gyro_offset_z(-10)
+
+			imu.set_accel_offset_x(-1550) # IMU3 settings (Updated before start of pilots)
+			imu.set_accel_offset_y(-2150)
+			imu.set_accel_offset_z(5000)
+			imu.set_gyro_offset_x(30)
+			imu.set_gyro_offset_y(5)
+			imu.set_gyro_offset_z(-50)
 
 		elif scl==board.SCL_1 and sda==board.SDA_1:
-			# imu.set_accel_offset_x(-1638)
-			# imu.set_accel_offset_y(9046)
-			# imu.set_accel_offset_z(5000)
-			# imu.set_gyro_offset_x(0) # TODO: Still need to calibrate this
-			# imu.set_gyro_offset_y(0) # TODO: Still need to calibrate this
-			# imu.set_gyro_offset_z(0) # TODO: Still need to calibrate this
-			imu.set_accel_offset_x(-3150) # Imu 2 settings
-			imu.set_accel_offset_y(2900)
-			imu.set_accel_offset_z(4100)
-			imu.set_gyro_offset_x(575)
-			imu.set_gyro_offset_y(-75)
+			# imu.set_accel_offset_x(-3150) # IMU2 settings (old, before collection of AB02)
+			# imu.set_accel_offset_y(2900)
+			# imu.set_accel_offset_z(4100)
+			# imu.set_gyro_offset_x(575)
+			# imu.set_gyro_offset_y(-75)
+			# imu.set_gyro_offset_z(-20)
+			imu.set_accel_offset_x(-3817) # IMU2 settings (Updated 12102020, after collection of AB02)
+			imu.set_accel_offset_y(3567)
+			imu.set_accel_offset_z(3625)
+			imu.set_gyro_offset_x(-20)
+			imu.set_gyro_offset_y(50)
 			imu.set_gyro_offset_z(-20)
 
-		imu.set_accel_scale(8)
+		imu.set_accel_scale(4)
 		imu.set_gyro_scale(1000)
 		return imu
 

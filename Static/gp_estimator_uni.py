@@ -22,14 +22,14 @@ RECV_PORT = 8080
 
 
 def load_estimator():
-	model_files = [f for f in listdir(getcwd()) if '.h5' in f]
+	model_files = [f for f in listdir(getcwd() + '/../TensorFlowModels') if '.h5' in f]
 
 	print()
 	for i, model_file in enumerate(model_files):
 		print(f"[{i}] {model_file}")
 
 	while 1:
-		file_select = int(input('Please choose a model file from the menu: '))
+		file_select = int(input('Please choose a left model file from the menu: '))
 		if file_select < len(model_files): break
 
 	model_file = model_files[file_select]
@@ -38,21 +38,40 @@ def load_estimator():
 	ws = [int(d[2:]) for d in model_file.split('.')[0].split('_') if 'WS' in d][0]
 
 	# Load model
-	model = load_model(getcwd() + '/' + model_file)
+	left_model = load_model(getcwd() + '/' + model_file)
 
-	return model, ws
+
+	model_files = [f for f in listdir(getcwd()) if '.h5' in f]
+
+	print()
+	for i, model_file in enumerate(model_files):
+		print(f"[{i}] {model_file}")
+
+	while 1:
+		file_select = int(input('Please choose a right model file from the menu: '))
+		if file_select < len(model_files): break
+
+	model_file = model_files[file_select]
+
+	# Load model
+	right_model = load_model(getcwd() + '/' + model_file)
+
+	return left_model, right_model, ws
 
 
 def run_server(recv_conn, model_info):
 	# Load model and get input dimensions
-	model = model_info[0]
-	ws = model_info[1]
+	left_model = model_info[0]
+	right_model = model_info[1]	
+	ws = model_info[2]
 
 	print('Warning - Hard coded input size to 10.')
 	input_size = 10
 
 	# Initialize input data for forward pass
 	input_data = np.zeros((1, ws, input_size))
+
+	slow_count = 0
 
 	while 1:
 		try:
@@ -61,12 +80,21 @@ def run_server(recv_conn, model_info):
 				start_time = time.time()
 				
 				# Read and parse any incoming data
+				# recv_data = np.array([[float(value) for value in msg.split(',')[:-1]] for msg in recv_msg.decode().split('!')[1:] if len(msg.split(',')[:-1])==input_size]).reshape(1, -1, input_size) # Ignore anything before the first ! (this should just be empty)
 				recv_data = np.array([[float(value) for value in msg.split(',')[:-1]] for msg in recv_msg.decode().split('!')[1:] if len(msg.split(',')[:-1])==input_size+1]) # Ignore anything before the first ! (this should just be empty)
+				
+				recv_data = recv_data.reshape(1, -1, input_size+1)
+				recv_data = recv_data[:, :, :-1]
+
+				# if recv_data.shape[1] > 1:
+				# 	slow_count += 1
+				# 	print('Too slow ' + str(slow_count) + ' ' + str(recv_data.shape[1]))
+				# else:
+				# 	print('Wooh!')
 				# split = recv_msg.decode().split('!')[-1].split(',') # This only receives last message
 				# recv_data = np.reshape(np.array(split, dtype=np.float), (1, len(split))) # This only receives last message
 				#print(recv_msg.decode().split('!')[-1].split(',')[:-1])
 
-				recv_data = recv_data[:,:-1].reshape(1, -1, input_size)
 				# Delete first n rows in input_data based on how many new instances were received (ideally this is only one instance at a time)
 				rows_to_remove = recv_data.shape[1]
 				input_data = np.delete(input_data, slice(rows_to_remove), axis=1)
@@ -81,7 +109,8 @@ def run_server(recv_conn, model_info):
 
 				# Gait phase estimator forward pass
 				start_time = time.time()
-				gp_estimate_orig = model.predict(input_data)[-1] # Just use last estimate (there should only be 1 anyways)
+				left_gp_estimate_orig = left_model.predict(input_data)[-1] # Just use last estimate (there should only be 1 anyways)
+				right_gp_estimate_orig = right_model.predict(input_data)[-1]
 				# gp_estimate_orig = model(tf.convert_to_tensor(np.float32(inst_data)))
 				# print(time.time()-start_time)
 
@@ -93,8 +122,8 @@ def run_server(recv_conn, model_info):
 				# 	print(time.time()-start_time)
 
 				# Convert gait phase phasor to percentage
-				gp_estimate_left = ((np.arctan2(gp_estimate_orig[1], gp_estimate_orig[0]) + (2.0*math.pi)) % (2.0*math.pi)) * 1.0/(2*math.pi)
-				gp_estimate_right = ((np.arctan2(gp_estimate_orig[3], gp_estimate_orig[2]) + (2.0*math.pi)) % (2.0*math.pi)) * 1.0/(2*math.pi)
+				gp_estimate_left = ((np.arctan2(left_gp_estimate_orig[1], left_gp_estimate_orig[0]) + (2.0*math.pi)) % (2.0*math.pi)) * 1.0/(2*math.pi)
+				gp_estimate_right = ((np.arctan2(right_gp_estimate_orig[1], right_gp_estimate_orig[0]) + (2.0*math.pi)) % (2.0*math.pi)) * 1.0/(2*math.pi)
 				# print(recv_data)
 				# gp_estimate_left = input_data[0, -1, 2]
 				# gp_estimate_right = np.max(input_data[0, :, 2])

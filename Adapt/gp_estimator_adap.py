@@ -45,7 +45,7 @@ def label_ground_truth(joint_positions):
     return y, end_idx, cartesian_output
 
 def load_estimator():
-	model_files = [f for f in listdir(getcwd()) if '.h5' in f]
+	model_files = [f for f in listdir(getcwd() + '/../TensorFlowModels') if '.h5' in f]
 	print()
 	for i, model_file in enumerate(model_files):
 		print(f"[{i}] {model_file}")

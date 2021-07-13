@@ -1,2 +1,2 @@
 # gait-phase
-Jetson code for gait phase estimation.
+Jetson Nano code for gait phase estimation.
