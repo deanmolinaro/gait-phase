@@ -54,10 +54,10 @@ class GaitPhaseEstimator:
 			# toggle_adapt_process = mp.Process(target=self.toggle_adapt)
 			# processes.append(toggle_adapt_process)
 
-			run_gp_estimator_process = mp.Process(target=self.run_gp_estimator)
+			run_gp_estimator_process = mp.Process(target=self.run_gp_estimator, args=('TensorFlowModels',))
 			processes.append(run_gp_estimator_process)
 
-			run_adapt_process = mp.Process(target=self.run_adapt)
+			run_adapt_process = mp.Process(target=self.run_adapt, args=('TensorFlowModels',))
 			processes.append(run_adapt_process)
 
 			[p.start() for p in processes]
@@ -139,12 +139,13 @@ class GaitPhaseEstimator:
 				input('Press enter to start adaptation: ')
 				self.adapt_toggle.set()
 
-	def run_adapt(self):
-		left_model = load_model('GP_Left_WS80_noBN.h5')
-		right_model = load_model('GP_Right_WS80_noBN.h5')
+	def run_adapt(self, ext=''):
+		model_dir = getcwd() + '/' + ext
+		left_model = load_model(model_dir + '/GP_Left_WS80_noBN.h5')
+		right_model = load_model(model_dir + '/GP_Right_WS80_noBN.h5')
 
-		left_adap_model = load_model('GP_Left_WS80_noBN.h5')
-		right_adap_model = load_model('GP_Right_WS80_noBN.h5')
+		left_adap_model = load_model(model_dir + '/GP_Left_WS80_noBN.h5')
+		right_adap_model = load_model(model_dir + '/GP_Right_WS80_noBN.h5')
 		opt = keras.optimizers.Adam(learning_rate=0.0001)
 		left_adap_model.compile(optimizer=opt, loss='mean_absolute_error')
 		right_adap_model.compile(optimizer=opt, loss='mean_absolute_error')
@@ -213,14 +214,16 @@ class GaitPhaseEstimator:
 				while not self.q.empty():
 					self.q.get()
 
-	def run_gp_estimator(self):
+	def run_gp_estimator(self, ext=''):
 		# Load model and get input dimensions
 		# model = self.model_info[0]
 		# ws = self.model_info[1]
 
+		model_dir = getcwd() + '/' + ext
+
 		# model, ws = self.load_estimator()
-		left_model = load_model('GP_Left_WS80_noBN.h5')
-		right_model = load_model('GP_Right_WS80_noBN.h5')
+		left_model = load_model(model_dir + '/GP_Left_WS80_noBN.h5')
+		right_model = load_model(model_dir + '/GP_Right_WS80_noBN.h5')
 
 		self.recv_conn = self.start_server()
 

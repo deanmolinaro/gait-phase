@@ -129,7 +129,7 @@ def custom_rmse_uni(left_true, left_pred):
 
     return left_rmse
 
-def run_server(recv_conn):
+def run_server(recv_conn, ext=''):
 	# Load model and get input dimensions'
 	#left_model = model_info[0]
 	#left_adap_model = model_info[1]
@@ -137,10 +137,12 @@ def run_server(recv_conn):
 	#right_adap_model = model_info[3]
 	#ws = model_info[4]
 
-	left_model = load_model('GP_Left_WS80_noBN.h5')
-	left_adap_model = load_model('GP_Left_WS80_noBN.h5')
-	right_model = load_model('GP_Right_WS80_noBN.h5')
-	right_adap_model = load_model('GP_Right_WS80_noBN.h5')
+	model_dir = getcwd() + '/' + ext
+
+	left_model = load_model(model_dir + '/GP_Left_WS80_noBN.h5')
+	left_adap_model = load_model(model_dir + '/GP_Left_WS80_noBN.h5')
+	right_model = load_model(model_dir + '/GP_Right_WS80_noBN.h5')
+	right_adap_model = load_model(model_dir + '/GP_Right_WS80_noBN.h5')
 
 	# Initialize input data for forward pass	
 	ws = 80
@@ -255,7 +257,7 @@ def main():
 	recv_conn = start_server()
 
 	# Run gait phase estimator
-	exit_cond = run_server(recv_conn)
+	exit_cond = run_server(recv_conn, 'TensorFlowModels')
 	
 	return
 

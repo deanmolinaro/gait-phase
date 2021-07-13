@@ -13,7 +13,7 @@ import multiprocessing as mp
 from multiprocessing.sharedctypes import RawArray, Value
 from ctypes import c_double
 
-from ..imu.MPU9250 import MPU9250
+from imu.MPU9250 import MPU9250
 import board
 import digitalio
 
@@ -61,7 +61,7 @@ class GaitPhaseEstimator:
 			self.recv_conn = 0
 			# self.model_info = self.load_estimator() # Load model
 			# self.recv_conn = self.start_server()
-			self.model_file = self.choose_estimator()
+			self.model_file = self.choose_estimator('TensorFlowModels')
 
 		# self.imu_data = np.zeros((1, 14))
 		self.imu_data = RawArray(c_double, 1000*15)
@@ -112,8 +112,9 @@ class GaitPhaseEstimator:
 		# Ignore normal keyboard interrupt exit to properly close multiprocessing
 		signal.signal(signal.SIGINT, signal.SIG_IGN)
 
-	def choose_estimator(self):
-		model_files = [f for f in listdir(getcwd() + '/../TensorFlowModels') if '.h5' in f]
+	def choose_estimator(self, ext=''):
+		model_dir = getcwd() + '/' + ext
+		model_files = [f for f in listdir(model_dir) if '.h5' in f]
 
 		print()
 		for i, model_file in enumerate(model_files):
@@ -123,7 +124,7 @@ class GaitPhaseEstimator:
 			file_select = int(input('Please choose a model file from the menu: '))
 			if file_select < len(model_files): break
 
-		model_file = model_files[file_select]
+		model_file = model_dir + '/' + model_files[file_select]
 		return model_file
 
 	def load_estimator(self):
@@ -143,7 +144,7 @@ class GaitPhaseEstimator:
 		ws = [int(d[2:]) for d in self.model_file.split('.')[0].split('_') if 'WS' in d][0]
 
 		# Load model
-		model = load_model(getcwd() + '/' + self.model_file)
+		model = load_model(self.model_file)
 
 		return model, ws
 

@@ -21,15 +21,16 @@ SERVER_IP = '' # server ip address is 192.168.0.2
 RECV_PORT = 8080
 
 
-def load_estimator():
-	model_files = [f for f in listdir(getcwd() + '/../TensorFlowModels') if '.h5' in f]
+def load_estimator(ext=''):
+	model_dir = getcwd() + '/' + ext
+	model_files = [f for f in listdir(model_dir) if '.h5' in f]
 
 	print()
 	for i, model_file in enumerate(model_files):
 		print(f"[{i}] {model_file}")
 
 	while 1:
-		file_select = int(input('Please choose a left model file from the menu: '))
+		file_select = int(input('Please choose a model file from the menu: '))
 		if file_select < len(model_files): break
 
 	model_file = model_files[file_select]
@@ -38,32 +39,15 @@ def load_estimator():
 	ws = [int(d[2:]) for d in model_file.split('.')[0].split('_') if 'WS' in d][0]
 
 	# Load model
-	left_model = load_model(getcwd() + '/' + model_file)
+	model = load_model(model_dir + '/' + model_file)
 
-
-	model_files = [f for f in listdir(getcwd()) if '.h5' in f]
-
-	print()
-	for i, model_file in enumerate(model_files):
-		print(f"[{i}] {model_file}")
-
-	while 1:
-		file_select = int(input('Please choose a right model file from the menu: '))
-		if file_select < len(model_files): break
-
-	model_file = model_files[file_select]
-
-	# Load model
-	right_model = load_model(getcwd() + '/' + model_file)
-
-	return left_model, right_model, ws
+	return model, ws
 
 
 def run_server(recv_conn, model_info):
 	# Load model and get input dimensions
-	left_model = model_info[0]
-	right_model = model_info[1]	
-	ws = model_info[2]
+	model = model_info[0]
+	ws = model_info[1]
 
 	print('Warning - Hard coded input size to 10.')
 	input_size = 10
@@ -109,8 +93,7 @@ def run_server(recv_conn, model_info):
 
 				# Gait phase estimator forward pass
 				start_time = time.time()
-				left_gp_estimate_orig = left_model.predict(input_data)[-1] # Just use last estimate (there should only be 1 anyways)
-				right_gp_estimate_orig = right_model.predict(input_data)[-1]
+				gp_estimate_orig = model.predict(input_data)[-1] # Just use last estimate (there should only be 1 anyways)
 				# gp_estimate_orig = model(tf.convert_to_tensor(np.float32(inst_data)))
 				# print(time.time()-start_time)
 
@@ -122,8 +105,8 @@ def run_server(recv_conn, model_info):
 				# 	print(time.time()-start_time)
 
 				# Convert gait phase phasor to percentage
-				gp_estimate_left = ((np.arctan2(left_gp_estimate_orig[1], left_gp_estimate_orig[0]) + (2.0*math.pi)) % (2.0*math.pi)) * 1.0/(2*math.pi)
-				gp_estimate_right = ((np.arctan2(right_gp_estimate_orig[1], right_gp_estimate_orig[0]) + (2.0*math.pi)) % (2.0*math.pi)) * 1.0/(2*math.pi)
+				gp_estimate_left = ((np.arctan2(gp_estimate_orig[1], gp_estimate_orig[0]) + (2.0*math.pi)) % (2.0*math.pi)) * 1.0/(2*math.pi)
+				gp_estimate_right = ((np.arctan2(gp_estimate_orig[3], gp_estimate_orig[2]) + (2.0*math.pi)) % (2.0*math.pi)) * 1.0/(2*math.pi)
 				# print(recv_data)
 				# gp_estimate_left = input_data[0, -1, 2]
 				# gp_estimate_right = np.max(input_data[0, :, 2])
@@ -156,7 +139,7 @@ def start_server():
 
 def main():
 	# Load model
-	model_info = load_estimator()
+	model_info = load_estimator('TensorFlowModels')
 	
 	# Start server and wait for connection
 	recv_conn = start_server()
