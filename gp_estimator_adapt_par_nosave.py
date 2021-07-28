@@ -156,7 +156,6 @@ class GaitPhaseEstimator:
 		buf = np.empty((0, input_size))
 		left_buf = np.empty((0, input_size))
 		right_buf = np.empty((0, input_size))
-		adapting = False
 
 		while True:
 			if self.adapt_toggle.is_set():
@@ -165,16 +164,8 @@ class GaitPhaseEstimator:
 					buf = np.append(buf, recv_data, axis=0)
 
 				if buf.shape[0] > buf_size:
-					left_peak_idx = self.find_peak_idx(buf[:,0])
-					right_peak_idx = self.find_peak_idx(buf[:,1])
-
-					if not left_peak_idx.any() or not right_peak_idx.any():
-						print('Warning - Could not find peaks. Clearing buffer.')
-						buf = np.empty((0, input_size))
-						continue
-					else:
-						left_peak_idx = left_peak_idx[-1]
-						right_peak_idx = right_peak_idx[-1]
+					left_peak_idx = self.find_peak_idx(buf[:,0])[-1]
+					right_peak_idx = self.find_peak_idx(buf[:,1])[-1]
 
 					left_x = np.concatenate([left_buf, buf[:left_peak_idx, :]], axis=0)
 					right_x = np.concatenate([right_buf, buf[:right_peak_idx, :]], axis=0)
@@ -207,7 +198,6 @@ class GaitPhaseEstimator:
 
 					left_adap_model.fit(left_x, left_y, epochs=1, verbose=0)
 					right_adap_model.fit(right_x, right_y, epochs=1, verbose=0)
-					adapting = True
 
 					left_buf = buf[left_peak_idx:, :]
 					right_buf = buf[right_peak_idx:, :]
@@ -219,17 +209,10 @@ class GaitPhaseEstimator:
 					self.lock.release()
 
 					self.update_flag.set()
-			elif not self.adapt_toggle.is_set():
-				if not self.q.empty():
-					print('Clearing adaptation buffer.')
-					while not self.q.empty():
-						self.q.get()
-				if adapting:
-					adapting = False
-					print('Saving new model.')
-					left_adap_model.save(model_dir + '/GP_Left_WS80_noBN_adapted.h5')
-					right_adap_model.save(model_dir + '/GP_Right_WS80_noBN_adapted.h5')
-					
+			elif not self.adapt_toggle.is_set() and not self.q.empty():
+				print('Clearing adaptation buffer.')
+				while not self.q.empty():
+					self.q.get()
 
 	def run_gp_estimator(self, ext=''):
 		# Load model and get input dimensions
