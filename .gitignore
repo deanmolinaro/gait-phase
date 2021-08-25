@@ -1,2 +1,4 @@
 /log
 *checkpoint*
+ExoBoot/__pycache__
+ExoBoot/boot
