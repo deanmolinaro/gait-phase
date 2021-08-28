@@ -92,7 +92,7 @@ def run_gp_estimator(exos, ws):
 				# t.append(time.perf_counter() - start_time)
 
 			if any(inf_flag):
-				start_time = time.perf_counter()
+				# start_time = time.perf_counter()
 				if inf_flag[next_side] == 1:
 					this_side = next_side
 					next_side = abs(next_side-1)
@@ -115,12 +115,12 @@ def run_gp_estimator(exos, ws):
 				send_msg = "!" + "{:.0f}".format(this_side) + "," + "{:.5f}".format(gp) + "," + "{:.0f}".format(np.round(ss))
 				server.to_client(send_msg)
 
-				t.append(time.perf_counter() - start_time)
+				# t.append(time.perf_counter() - start_time)
 
 		except:
 			print(traceback.print_exc())
 			print('Closing!')
-			print(t)
+			# print(t)
 			server.close()
 			return 0
 

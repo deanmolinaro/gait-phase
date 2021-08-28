@@ -8,11 +8,11 @@ from os import listdir, getcwd
 class ModelRT(object):
 	def __init__(self, m_file='', m_dir='', input_shape=None):
 		self.m_dir = m_dir if any(m_dir) else None
-		self.m_file = m_file if any(m_file) else self.choose_model()
+		self.m_file = m_file if any(m_file) else self.choose_model(self.m_dir)
 		self.m_filepath = self.m_dir + '/' + self.m_file if self.m_dir else self.m_file
 		print(f'Loading {self.m_file}.')
 
-		self.input_shape = input_shape if input_shape else self.get_shape_from_name()
+		self.input_shape = input_shape if input_shape else self.get_shape_from_name(self.m_file)
 		if not self.input_shape:
 			print('Could not determine model input shape.')
 			return
@@ -21,8 +21,9 @@ class ModelRT(object):
 
 		self.timer = Timer()
 
-	def choose_model(self):
-		m_files = [f for f in listdir(self.m_dir) if '.trt' in f]
+	@staticmethod
+	def choose_model(m_dir=None):
+		m_files = [f for f in listdir(m_dir) if '.trt' in f]
 
 		print()
 		for i, m_file in enumerate(m_files):
@@ -35,9 +36,10 @@ class ModelRT(object):
 		m_file = m_files[file_select]
 		return m_file
 
-	def get_shape_from_name(self):
-		if '_S' in self.m_file:
-			return tuple([int(s.split('_')[0]) for s in self.m_file.split('_S')[-1].split('-')])
+	@staticmethod
+	def get_shape_from_name(m_file):
+		if '_S' in m_file:
+			return tuple([int(s.split('_')[0]) for s in m_file.split('.')[0].split('_S')[-1].split('-')])
 		else:
 			return None
 
