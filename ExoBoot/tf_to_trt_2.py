@@ -1,5 +1,4 @@
 from tensorflow.python.keras.models import load_model
-# import biomechdata
 import argparse
 import subprocess
 
@@ -29,7 +28,7 @@ def from_menu(m_dir=None):
 
 	return m_file
 
-def to_trt(m='', m_dir='', b=None):
+def to_trt(m='', m_dir='', b=None, ws=None, c=None):
 	m_dir = m_dir if any(m_dir) else getcwd()
 	if not any(m):
 		m = from_menu(m_dir)
@@ -38,6 +37,12 @@ def to_trt(m='', m_dir='', b=None):
 
 	if not b:
 		b = int(input('Please input batch size: '))
+
+	if not ws:
+		ws = int(input('Please input window size: '))
+
+	if not c:
+		c = int(input('Please input number of input channels: '))
 
 	print(f'Loading {m}...')
 	model = load_model(m)
@@ -59,7 +64,7 @@ def to_trt(m='', m_dir='', b=None):
 	print('Done.')
 
 	print(f'Loading {m_trt}...')
-	model = ModelRT(m_trt, input_shape=(1, 50, 8))
+	model = ModelRT(m_trt, input_shape=(1, ws, c))
 	print('Done.')
 
 	print(f'Testing {m_trt}...')
@@ -68,11 +73,14 @@ def to_trt(m='', m_dir='', b=None):
 
 	return
 
+
 if __name__=="__main__":
 	# Input argument parser
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-m', type=str, default='')
 	parser.add_argument('-b', type=int, default=None)
+	parser.add_argument('-ws', type=int, default=None)
+	parser.add_argument('-c', type=int, default=None)
 
 	# Parse input argument
 	args = parser.parse_args()
