@@ -47,7 +47,10 @@ class GaitPhaseEstimator:
 		self.adapt_toggle = mp.Event()
 		self.adapt_toggle.clear()
 
-		T = np.array([[1, 2, 3, 1], [4, 5, 6, 2], [7, 8, 9, 3], [0, 0, 0, 1]])
+		# Transform w/ rotation from mocap
+		T = np.array([[0.1935, 0.2979, -0.9348, 0.0270], [0.9811, -0.0637, 0.1828, -0.0027], [-0.0051, -0.9525, -0.3046, -0.1205], [0, 0, 0, 1]])
+		# # Transform w/o rotation from mocap
+		# T = np.array([[0.0830, 0.0282, -0.9962, 0.0270], [0.9965, 0.0040, 0.0831, -0.0027], [0.0063, -0.9996, -0.0278, -0.1205], [0, 0, 0, 1]])
 		self.transform = Transform(T)
 
 	def run(self):

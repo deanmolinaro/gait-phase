@@ -48,8 +48,8 @@ class Transform():
 		a_r = []
 		w_w_r = []
 		for i in range(accel.shape[1]):
-			a_r.append(np.cross(ang_accel[:, i].reshape(-1, 1), self.P, axis=0))
-			w_w_r.append(np.cross(ang_vel[:, i].reshape(-1, 1), np.cross(ang_vel[:, i].reshape(-1, 1), self.P, axis=0), axis=0))
+			a_r.append(np.cross(ang_accel[:, i].reshape(-1, 1), -self.P, axis=0))
+			w_w_r.append(np.cross(ang_vel[:, i].reshape(-1, 1), np.cross(ang_vel[:, i].reshape(-1, 1), -self.P, axis=0), axis=0))
 		return accel + np.array(a_r) + np.array(w_w_r)
 
 if __name__=="__main__":
