@@ -281,8 +281,8 @@ class GaitPhaseEstimator:
 					e_gyro = 3
 					s_accel = 3
 					e_accel = 6
-					gyro_data = recv_data[:, s_gyro:e_gyro] * (np.pi / 180.) # rad/s
-					accel_data = recv_data[:, s_accel:e_accel] * 9.81 # m/s
+					gyro_data = recv_data[:, s_gyro:e_gyro] * (1000/(2**15)) * (np.pi / 180.) # rad/s
+					accel_data = recv_data[:, s_accel:e_accel] * (4/(2**15)) * 9.81 # m/s
 
 					gyro_data = self.transform.rotate(gyro_data.transpose())
 					accel_data = self.transform.rotate(accel_data.transpose())

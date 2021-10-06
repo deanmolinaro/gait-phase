@@ -50,7 +50,7 @@ class Transform():
 		for i in range(accel.shape[1]):
 			a_r.append(np.cross(ang_accel[:, i].reshape(-1, 1), -self.P, axis=0))
 			w_w_r.append(np.cross(ang_vel[:, i].reshape(-1, 1), np.cross(ang_vel[:, i].reshape(-1, 1), -self.P, axis=0), axis=0))
-		return accel + np.array(a_r) + np.array(w_w_r)
+		return accel + np.concatenate(a_r, axis=1) + np.concatenate(w_w_r, axis=1)
 
 if __name__=="__main__":
 	T = np.array([[1, 2, 3, 1], [4, 5, 6, 2], [7, 8, 9, 3], [0, 0, 0, 1]])
@@ -74,11 +74,51 @@ if __name__=="__main__":
 	np.testing.assert_allclose(my_transform.transform_with_inverse(x), np.array([[0, -12, -60, -46.4], [0, -12, -72, -56.2], [0, -12, -84, -66]]))
 	print('Passed.')
 
-	# Test accelerometer translation
-	print('Testing accelerometer translation... ', end="")
-	accel = np.random.rand(3, 100)
-	ang_vel = np.random.rand(3, 100)
-	ang_accel = np.diff(ang_vel, axis=1)
-	ang_accel = np.concatenate((np.zeros((3, 1)), ang_accel), axis=1)
-	my_transform.translate_accel(accel, ang_vel, ang_accel)
+	# # Test accelerometer translation
+	# print('Testing accelerometer translation... ', end="")
+	# accel = np.random.rand(3, 100)
+	# ang_vel = np.random.rand(3, 100)
+	# ang_accel = np.diff(ang_vel, axis=1)
+	# ang_accel = np.concatenate((np.zeros((3, 1)), ang_accel), axis=1)
+	# y = my_transform.translate_accel(accel, ang_vel, ang_accel)
+	# print('Passed.')
+
+	# Test IMU transformation using preshifted data from virtual IMUs (rotation and translation in data described by transformation matrix)
+	print('Testing IMU transformation.')
+	import pandas as pd
+	R = np.array([[0, -0.2588, 0.9659], [0, 0.9659, 0.2588], [-1, 0, 0]])
+	P = np.array([-0.0761, 0.2060, -0.0019]).reshape(-1, 1)
+	P = np.matmul(R, P)
+	T = np.concatenate((np.concatenate((R, P), axis=1), np.array([0, 0, 0, 1]).reshape(1, -1)), axis=0)
+	imu_transform = Transform(T)
+
+	imu_orig = pd.read_csv('./data/vimu_orig.csv')
+	accel_orig = imu_orig.loc[:, ('accel_x', 'accel_y', 'accel_z')].values*9.81
+	gyro_orig = imu_orig.loc[:, ('gyro_x', 'gyro_y', 'gyro_z')].values
+
+	imu_shift = pd.read_csv('./data/vimu_shift.csv')
+	accel_shift = imu_shift.loc[:, ('accel_x', 'accel_y', 'accel_z')].values*9.81
+	gyro_shift = imu_shift.loc[:, ('gyro_x', 'gyro_y', 'gyro_z')].values
+
+	gyro_orig_rot = imu_transform.rotate(gyro_orig.transpose()).transpose()
+	err = abs(gyro_orig_rot - gyro_shift).max()
+	if err > 1e-4:
+		raise Exception(f"Transformed gyro does not match! Error = {err}.")
+
+	ang_accel_orig_rot = np.concatenate((np.zeros((1, 3)), np.diff(gyro_orig_rot, axis=0)/0.005), axis=0).transpose()
+	accel_orig_rot = imu_transform.rotate(accel_orig.transpose())
+	accel_orig_rot_trans = imu_transform.translate_accel(accel_orig_rot, gyro_orig_rot.transpose(), ang_accel_orig_rot).transpose()
+	err = abs(accel_orig_rot_trans - accel_shift).max()
+	if err > 1.5:
+		raise Exception(f"Transformed accel does not match! Error = {err}.")
+
+	# from matplotlib import pyplot as plt
+	# plt.plot(gyro_orig_rot)
+	# plt.plot(gyro_shift)
+	# plt.show()
+
+	# plt.plot(accel_shift)
+	# plt.plot(accel_orig_rot_trans)
+	# plt.show()
+
 	print('Passed.')
